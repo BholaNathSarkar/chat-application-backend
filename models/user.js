@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const bcryptjs = require("bcryptjs");
+const crypto = require("crypto");
 
 const userSchema = new mongoose.Schema({
   firstName: {
@@ -28,6 +29,9 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
   },
+  passwordConform: {
+    type: String,
+  },
   passwordChangedAt: {
     type: Date,
   },
@@ -52,7 +56,7 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-// execuete somting berfor save
+// execuete somthing berfor save
 userSchema.pre("save", async function (next) {
   // Only run this fxn if OTP is actually modified
 
@@ -76,6 +80,21 @@ userSchema.methods.correctOTP = async function (
   userOTP // wqwdncwcq => have the all information
 ) {
   return await bcryptjs.compare(canditateOTP, userOTP);
+};
+
+userSchema.methods.createPasswordResetToken = async function () {
+  const resetToken = crypto.randomBytes(32).toString("hex");
+
+  this.passwordResetToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+  return resetToken;
+};
+
+userSchema.methods.changePasswordAfter = function (timestamp) {
+  return timestamp < this.passwordChangedAt;
 };
 
 const User = new mongoose.model("User", userSchema);
