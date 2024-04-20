@@ -1,7 +1,9 @@
 const jwt = require("jsonwebtoken");
 const otpGenerator = require("otp-generator");
 const crypto = require("crypto");
-
+const mailService = require("../services/mailer");
+// const bcrypt = require('bcryptjs');
+const bcryptjs = require("bcryptjs");
 //
 const User = require("../models/user");
 const filterObj = require("../utils/filterObj");
@@ -14,7 +16,7 @@ const signToken = (userId) => jwt.sign({ userId }, process.env.JWT_SECRET);
 // https://api.tawk.com/auth/register
 
 // register New user
-exports.register = async (req, res) => {
+exports.register = async (req, res, next) => {
   const { firstName, lastName, email, password } = req.body;
 
   const filterBody = filterObj(
@@ -38,9 +40,7 @@ exports.register = async (req, res) => {
       filterBody,
       { new: true, validateModifiedOnly: true }
     );
-
-    req.userId = existing_user._id;
-
+    req.userId = updated_user._id;
     next();
   } else {
     // if user record is not available in DB
@@ -55,38 +55,29 @@ exports.register = async (req, res) => {
 exports.sendOTP = async (req, res, next) => {
   const { userId } = req;
   const new_otp = otpGenerator.generate(6, {
-    lowerCaseAlphabets: false,
     upperCaseAlphabets: false,
     specialChars: false,
+    lowerCaseAlphabets: false,
   });
-  const otp_expiry_time = Date.now() + 10 * 60 * 1000; // 10min after otp is sent
 
-  await User.findByIdAndUpdate(userId, {
-    otp: new_otp,
-    otp_expiry_time,
+  const otp_expiry_time = Date.now() + 10 * 60 * 1000; // 10 Mins after otp is sent
+
+  const user = await User.findByIdAndUpdate(userId, {
+    otp_expiry_time: otp_expiry_time,
   });
+
+  user.otp = new_otp.toString();
+
+  await user.save({ new: true, validateModifiedOnly: true });
 
   // TODO Send Mail
-  exports.veryifyOTP = async (req, res, next) => {
-    // veryfyied OTP and update the user recored accourdingly
-    const { email, otp } = req.body;
-    const user = await User.findOne({
-      email,
-      otp_expiry_time: { $gt: Date.now() },
-    });
-    if (!user) {
-      res.status(400).json({
-        status: "error",
-        message: "Email is invalid or OTP is expired",
-      });
-    }
-    if (!(await user.correctOTP(otp, user.otp))) {
-      res.status(400).json({
-        status: "error",
-        message: "OTP is incorrect",
-      });
-    }
-  };
+
+  mailService.sendEmail({
+    from: "abir003@gmail.com",
+    to: "sarkaraditya817@gmail.com",
+    subject: "OTP for login",
+    text: `Your OTP is ${new_otp}. This is valid for 10 min`,
+  });
 
   res.status(200).json({
     status: "Success",
@@ -94,53 +85,99 @@ exports.sendOTP = async (req, res, next) => {
   });
 };
 
-// user OTP is correct
-user.verified = true;
-user.otp = undefined;
-await user.save({ new: true, validateModifiedOnly: true });
+exports.verifyOTP = async (req, res) => {
+  // verify otp and update user accordingly
+  const { email, otp } = req.body;
+  const user = await User.findOne({
+    email,
+    otp_expiry_time: { $gt: Date.now() },
+  });
 
-const token = signToken(user._id);
+  if (!user) {
+    return res.status(400).json({
+      status: "error",
+      message: "Email is invalid or OTP expired",
+    });
+  }
 
-req.status(200).json({
-  status: "success",
-  message: "OTP verified successfully",
-  token,
-});
+  if (user.verified) {
+    return res.status(400).json({
+      status: "error",
+      message: "Email is already verified",
+    });
+  }
 
-// login functiollity
-exports.login = async (req, res, next) => {
-  //
-  const { email, password } = req.body;
-
-  if (!email && !password) {
+  if (!user.correctOTP(otp, user.otp)) {
     res.status(400).json({
       status: "error",
-      message: "Both Email and passowrd are required ",
+      message: "OTP is incorrect",
     });
+
+    return;
   }
 
-  const useDoc = await User.findOne({ email: email }).select("+password");
+  // OTP is correct
 
-  if (!useDoc || !(await useDoc.correctPassword(password, useDoc.password))) {
-    req.status(400).json({
-      status: "error",
-      message: " email or password are incorrect",
-    });
-  }
+  user.verified = true;
+  user.otp = "";
+  await user.save({ new: true, validateModifiedOnly: true });
 
-  const token = signToken(useDoc._id);
+  const token = signToken(user._id);
 
-  req.status(200).json({
-    status: 200,
-    message: "Logged in successfully",
+  res.status(200).json({
+    status: "success",
+    message: "OTP verified Successfully!",
     token,
+    user_id: user._id,
   });
 };
 
-// Types of routes => Proctected ( Only loggin user can access these) & Unprocted
+// login functiollity
+exports.login = async (req, res, next) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    res.status(400).json({
+      status: "error",
+      message: "Both email and password are required",
+    });
+    return;
+  }
+
+  const user = await User.findOne({ email: email }).select("+password");
+
+  if (!user || !user.password) {
+    res.status(400).json({
+      status: "error",
+      message: "Incorrect password",
+    });
+
+    return;
+  }
+
+  if (!user || !(await user.correctPassword(password, user.password))) {
+    res.status(400).json({
+      status: "error",
+      message: "Email or password is incorrect",
+    });
+
+    return;
+  }
+
+  const token = signToken(user._id);
+
+  res.status(200).json({
+    status: "success",
+    message: "Logged in successfully!",
+    token,
+    user_id: user._id,
+  });
+};
+
+// Types of routes => protect ( Only loggin user can access these) & Unprocted
 
 // only users who can login your system who can access our API
-exports.proctect = async (req, res, next) => {
+exports.protect = async (req, res, next) => {
   // 1) Getting the token (JWT) cancheck if it's there
 
   let token;
@@ -192,12 +229,16 @@ exports.forgotPassword = async (req, res, next) => {
   }
 
   // 2) Generate the random reset token
-  const resetToken = user.createPasswordResetToken();
+  const resetToken = await user.createPasswordResetToken();
 
-  const resetURL = `https://tawk.com/auth/reset-password/?code=${resetToken}`;
-
+  const resetURL = `http://localhost:3000/auth/new-password/?code=${resetToken}`;
   try {
-    // TODO => Send email with reset URL
+    mailService.sendEmail({
+      from: "abir003@gmail.com",
+      to: "sarkaraditya817@gmail.com",
+      subject: "Reset Password",
+      text: `Your reset URL is ${resetURL}. This is valid for 10 min`,
+    });
 
     res.status(200).json({
       status: "success",
@@ -206,19 +247,18 @@ exports.forgotPassword = async (req, res, next) => {
   } catch (error) {
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
+    res.status(500).json({
+      status: "error",
+      message: "There was an error in sending email please try again later",
+    });
   }
   await user.save({ validateBeforeSave: false });
-
-  res.status(500).json({
-    status: "error",
-    message: "There was an error in sending email please try again later",
-  });
 };
 
 exports.resetPassword = async (req, res, next) => {
   const hasToken = crypto
     .createHash("sha256")
-    .update(req.params.token)
+    .update(req.body.token)
     .digest("hex");
   const user = await User.findOne({
     passwordResetToken: hasToken,
@@ -236,7 +276,7 @@ exports.resetPassword = async (req, res, next) => {
 
   // 3) Update user password and set resetToken & expiry to undefined
   user.password = req.body.password;
-  user.passwordConform = req.body.passwordConform;
+  user.passwordConfirm = req.body.passwordConfirm;
 
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
@@ -249,7 +289,7 @@ exports.resetPassword = async (req, res, next) => {
 
   const token = signToken(user._id);
 
-  req.status(200).json({
+  res.status(200).json({
     status: 200,
     message: "Password Reset Successfully",
     token,

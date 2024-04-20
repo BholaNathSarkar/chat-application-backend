@@ -1,5 +1,7 @@
 const express = require("express"); // web framework for node,js
 
+const routes = require("./routes/index");
+
 // HTTP request logger middleware
 const morgan = require("morgan");
 
@@ -32,6 +34,7 @@ app.use(mongosanitize());
 
 // connect two different server
 const cors = require("cors");
+const router = require("./routes");
 
 app.use(
   cors({
@@ -59,4 +62,8 @@ const limiter = rateLimit({
 
 app.use("/tawk", limiter);
 
+app.use(routes);
+
 module.exports = app;
+
+// http://localhot:3000/auth/login

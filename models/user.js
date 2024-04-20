@@ -21,7 +21,9 @@ const userSchema = new mongoose.Schema({
       validator: function name(email) {
         return String(email)
           .toLowerCase()
-          .match(/^[a-zA-Z0-9. _%+-]+@[a-zA-Z0-9. -]+\\. [a-zA-Z]{2,}$/);
+          .match(
+            /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+          );
       },
     },
     message: (props) => `Email (${props.value}) is invalid`,
@@ -29,7 +31,7 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
   },
-  passwordConform: {
+  passwordConfirm: {
     type: String,
   },
   passwordChangedAt: {
@@ -49,7 +51,7 @@ const userSchema = new mongoose.Schema({
     default: false,
   },
   otp: {
-    type: Number,
+    type: String,
   },
   otp_expiry_time: {
     type: Date,
@@ -61,25 +63,47 @@ userSchema.pre("save", async function (next) {
   // Only run this fxn if OTP is actually modified
 
   if (!this.isModified("otp")) return next();
+  const otpString = this.otp.toString();
 
-  // encrept the otp in db
+  // encrypt the otp in db
   // hsah of the OTP with cost of 12
-  this.otp = await bcryptjs.hash(this.otp, 12);
+  
+  this.otp = await bcryptjs.hash(otpString, 12);
+  next();
+});
+
+userSchema.pre("save", async function (next) {
+  // Only run this function if password was actually modified
+  if (!this.isModified("password") || !this.password) return next();
+
+  // Hash the password with cost of 12
+  this.password = await bcryptjs.hash(this.password, 12);
+
+  //! Shift it to next hook // this.passwordChangedAt = Date.now() - 1000;
+
+  next();
+});
+
+userSchema.pre("save", function (next) {
+  if (!this.isModified("password") || this.isNew || !this.password)
+    return next();
+
+  this.passwordChangedAt = Date.now() - 1000;
   next();
 });
 
 userSchema.methods.correctPassword = async function (
-  canditatePassword, // 12345
-  userPassword // wqwdncwcq
+  candidatePassword,
+  userPassword
 ) {
-  return await bcryptjs.compare(canditatePassword, userPassword);
+  return await bcryptjs.compare(candidatePassword,userPassword);
 };
 
 userSchema.methods.correctOTP = async function (
   canditateOTP, // 12345
   userOTP // wqwdncwcq => have the all information
 ) {
-  return await bcryptjs.compare(canditateOTP, userOTP);
+  return await bcryptjs.compare(canditateOTP,userOTP);
 };
 
 userSchema.methods.createPasswordResetToken = async function () {
