@@ -56,6 +56,15 @@ const userSchema = new mongoose.Schema({
   otp_expiry_time: {
     type: Date,
   },
+  socket_id: {
+    type: String,
+  },
+  friends: [
+    {
+      type: mongoose.Schema.ObjectId,
+      ref: "User",
+    },
+  ],
 });
 
 // execuete somthing berfor save
@@ -67,7 +76,7 @@ userSchema.pre("save", async function (next) {
 
   // encrypt the otp in db
   // hsah of the OTP with cost of 12
-  
+
   this.otp = await bcryptjs.hash(otpString, 12);
   next();
 });
@@ -96,14 +105,14 @@ userSchema.methods.correctPassword = async function (
   candidatePassword,
   userPassword
 ) {
-  return await bcryptjs.compare(candidatePassword,userPassword);
+  return await bcryptjs.compare(candidatePassword, userPassword);
 };
 
 userSchema.methods.correctOTP = async function (
   canditateOTP, // 12345
   userOTP // wqwdncwcq => have the all information
 ) {
-  return await bcryptjs.compare(canditateOTP,userOTP);
+  return await bcryptjs.compare(canditateOTP, userOTP);
 };
 
 userSchema.methods.createPasswordResetToken = async function () {

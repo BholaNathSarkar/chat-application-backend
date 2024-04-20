@@ -2,6 +2,7 @@ const app = require("./app");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 dotenv.config({ path: ".env" });
+const { Server } = require("socket.io");
 
 //if in your server have uncaughtException then  sutdown the server and return the error
 process.on("uncaughtException", (err) => {
@@ -10,34 +11,21 @@ process.on("uncaughtException", (err) => {
 });
 
 const http = require("http");
+const User = require("./models/user");
 
 const server = http.createServer(app);
 
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"],
+  },
+});
 
-
-
-// console.log(DB)
-
-// mongoose
-//   .connect(DB, {
-//     useNewUrlParser: true,
-//     useUnifiedTopology: true,
-//   })
-//   .then((con) => {
-//     console.log("db connection is successful");
-//   })
-//   .catch((err) => {
-//     console.log(err);
-//   });
-
-// const DB = process.env.DATABASE.replace(
-//   "<PASSWORD>",
-//   process.env.DATABASE_PASSWORD
-// );
 
 // const DB = process.env.DBURI.replace("<PASSWORD>", process.env.DBPASSWORD);
-const DB="mongodb+srv://chatapp:l4sSA6QWe8LPADFI@cluster1.chc4shz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster1"
-
+const DB =
+  "mongodb+srv://chatapp:l4sSA6QWe8LPADFI@cluster1.chc4shz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster1";
 
 mongoose
   .connect(DB, {
@@ -53,6 +41,39 @@ mongoose
 const port = process.env.PORT || 8000;
 server.listen(port, () => {
   console.log(`App is running on ${port}`);
+});
+
+io.on("connection", async (socket) => {
+  console.log(socket);
+  const user_id = socket.handshake.query("user_id");
+  const socket_id = socket.id;
+  console.log(`User connect: ${socket_id}`);
+  if (user_id) {
+    await User.findByIdAndUpdate(user_id, { socket_id });
+  }
+});
+
+// We can write our socket event listeners here ..
+
+io.on("connection", async (socket) => {
+  console.log(socket);
+  const user_id = socket.handshake.query("user_id");
+  const socket_id = socket.id;
+  console.log(`User connect: ${socket_id}`);
+  if (user_id) {
+    await User.findByIdAndUpdate(user_id, { socket_id });
+  }
+
+  // Socket event listener for "friend_request"
+  socket.on("friend_request", async (data) => {
+    console.log(data.to);
+    // {To: "4390382"}
+    const to = await User.findById(data.to);
+    // TODO => Creating a friend request;
+    io.to(to.socket_id).emit("new_friend_request", {
+      //
+    });
+  });
 });
 
 process.on("unhandledRejection", (err) => {
