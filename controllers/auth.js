@@ -181,12 +181,12 @@ exports.protect = async (req, res, next) => {
   // 1) Getting the token (JWT) cancheck if it's there
 
   let token;
-  if (req.headers.authorization && req.headers.authorization) {
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
     token = req.headers.authorization.split(" ")[1];
   } else if (req.cookies.jwt) {
     token = req.cookies.jwt;
   } else {
-    req.status(400).json({
+    res.status(400).json({
       status: "err",
       message: "You are not logged in! please log in to get access",
     });
@@ -213,6 +213,7 @@ exports.protect = async (req, res, next) => {
       message: "User recently updated password! Please log in again",
     });
   }
+  
   req.user = this_user;
   next();
 };

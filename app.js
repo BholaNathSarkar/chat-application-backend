@@ -20,8 +20,10 @@ const bodyParser = require("body-parser");
 // A Cross-Site Scripting (XSS) attack is characterized by an attacker's ability to inject to a web application, scripts of any kind, such as Flash, HTML, or JavaScript, that are intended to run and render on the application serving the page.
 const xss = require("xss");
 
-const app = express();
+const cookieParser = require("cookie-parser");
 
+const app = express();
+app.use(cookieParser());
 app.use(
   express.urlencoded({
     extended: true,

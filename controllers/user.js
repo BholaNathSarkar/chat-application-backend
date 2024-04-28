@@ -44,20 +44,26 @@ exports.getUsers = async (req, res, next) => {
 };
 
 exports.getRequests = async (req, res, next) => {
-  const request = await FriendRequest.find({ recipent: req.user._id }).populate(
-    "sender",
-    "firstName lastName"
-  );
+  console.log(`recipent: ${req.user._id}`);
+  const requests = await FriendRequest.find({ recipent: req.user._id })
+    .populate("sender")
+    .select("_id firstName lastName");
+console.log(requests);
+  res.status(200).json({
+    status: "success",
+    data: requests,
+    message: "Requests found successfully!",
+  });
 };
 
 exports.getFriends = async (req, res, next) => {
-  const friends = await User.findById(req.user._id).populate(
+  const this_user = await User.findById(req.user._id).populate(
     "friends",
     "_id firstName lastName"
   );
   res.status(200).json({
     status: "success",
-    data: friends,
+    data: this_user.friends,
     message: "FriendRequest successfully",
   });
 };

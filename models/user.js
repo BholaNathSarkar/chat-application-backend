@@ -65,6 +65,10 @@ const userSchema = new mongoose.Schema({
       ref: "User",
     },
   ],
+  status: {
+    type: String,
+    enum: ["Online", "Offline"],
+  },
 });
 
 // execuete somthing berfor save
