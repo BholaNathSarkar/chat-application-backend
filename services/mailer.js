@@ -13,7 +13,7 @@ let transporter = nodemailer.createTransport({
 });
 
 exports.sendEmail = async ({ to, from, subject, html, text, attachment }) => {
-  console.log(text)
+
   try {
     const msg = {
       from: {
