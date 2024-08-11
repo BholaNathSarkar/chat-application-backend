@@ -13,7 +13,7 @@ jobs:
     runs-on: self-hosted
     strategy:
       matrix:
-        node-version: [18.x]
+        node-version: [20.x]
 
     steps:
       - uses: actions/checkout@v4
@@ -28,3 +28,4 @@ jobs:
         shell: bash
         run: |
           echo "${{ secrets.PROD_ENV_FILE }}" | sed 's/\r//' > .env
+        run: pm2 restart BackendAPI
