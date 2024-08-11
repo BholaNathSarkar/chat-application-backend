@@ -21,11 +21,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          cache: "npm"
       - name: Install dependencies
         run: npm ci
       - name: Create .env file
         shell: bash
         run: |
           echo "${{ secrets.PROD_ENV_FILE }}" | sed 's/\r//' > .env
-        run: pm2 restart BackendAPI
+      - run: pm2 restart BackendAPI
