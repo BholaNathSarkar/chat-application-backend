@@ -25,12 +25,15 @@ const io = new Server(server, {
   },
 });
 
-// const DB = process.env.DBURI.replace("<PASSWORD>", process.env.DBPASSWORD);
-const DB =
-  "mongodb+srv://chatapp:l4sSA6QWe8LPADFI@cluster1.chc4shz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster1";
+const DB = process.env.DBURI.replace(
+  "<PASSWORD>",
+  process.env.DBPASSWORD
+).trim();
 
 mongoose
   .connect(DB, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
     // useNewUrlParser: true, // The underlying MongoDB driver has deprecated their current connection string parser. Because this is a major change, they added the useNewUrlParser flag to allow users to fall back to the old parser if they find a bug in the new parser.
     // useCreateIndex: true, // Again previously MongoDB used an ensureIndex function call to ensure that Indexes exist and, if they didn't, to create one. This too was deprecated in favour of createIndex . the useCreateIndex option ensures that you are using the new function calls.
     // useFindAndModify: false, // findAndModify is deprecated. Use findOneAndUpdate, findOneAndReplace or findOneAndDelete instead.
